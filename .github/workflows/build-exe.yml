@@ -1,5 +1,9 @@
 name: Build Windows EXE
 
+permissions:
+  contents: write
+
+
 # v1.0.0 처럼 v로 시작하는 태그를 푸시하면 자동 실행되고,
 # Actions 탭에서 수동으로도 실행할 수 있습니다 (workflow_dispatch).
 on:
