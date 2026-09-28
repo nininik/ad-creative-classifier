@@ -1,0 +1,14 @@
+# CLIP(내용 기반 의미 유사도) 기능용 - 선택 사항입니다.
+#
+# ⚠️ 반드시 아래 순서대로 설치하세요! (README.md의 "CLIP 설치" 항목 참고)
+#
+#   1) pip install torch --index-url https://download.pytorch.org/whl/cpu
+#      (CPU 전용 torch, 약 200MB. 이 순서를 건너뛰고 이 파일부터 설치하면
+#       기본 GPU 버전 torch가 깔리면서 CUDA 라이브러리까지 4GB 넘게 같이
+#       설치될 수 있습니다 - 우리 도구는 GPU가 전혀 필요 없어요.)
+#
+#   2) pip install -r requirements-clip.txt
+#      (이 파일 - open_clip_torch만 설치. 위에서 torch를 먼저 깔아뒀으면
+#       이미 만족된 의존성으로 인식되어 GPU 버전으로 덮어쓰지 않습니다.)
+#
+open_clip_torch

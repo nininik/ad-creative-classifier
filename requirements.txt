@@ -1,0 +1,7 @@
+Flask>=3.0
+Pillow
+imagehash
+opencv-python-headless
+scikit-image
+numpy
+pymupdf

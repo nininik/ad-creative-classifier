@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>분류 결과 - 광고소재 유사도 분류기</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1c1e21;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --border: #e5e7eb;
+    --radius: 12px;
+    --green: #059669;
+    --amber: #d97706;
+    --red: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px 80px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+  }
+  .summary { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pill {
+    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  }
+  .pill.identical { background: #ecfdf5; color: var(--green); }
+  .pill.similar { background: #fffbeb; color: var(--amber); }
+  .pill.different { background: #fef2f2; color: var(--red); }
+  .btn {
+    padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    text-decoration: none; display: inline-block;
+  }
+  .btn.primary { background: var(--accent); color: white; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.secondary { background: white; color: var(--text); border: 1px solid var(--border); }
+  .ref-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px;
+  }
+  .ref-card img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+  .ref-meta { font-size: 13px; color: var(--muted); }
+  .ref-meta b { color: var(--text); }
+  table {
+    width: 100%; border-collapse: collapse; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  }
+  th, td {
+    text-align: left; padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  th { background: #fafafa; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  .thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+  .no-thumb { width: 48px; height: 48px; border-radius: 6px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--muted); }
+  .badge {
+    padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  }
+  .badge.identical { background: #ecfdf5; color: var(--green); }
+  .badge.similar { background: #fffbeb; color: var(--amber); }
+  .badge.different { background: #fef2f2; color: var(--red); }
+  .badge.other { background: #f3f4f6; color: var(--muted); }
+  .score { font-variant-numeric: tabular-nums; }
+  .score-detail { font-size: 11px; color: var(--muted); }
+  .back-link { display: inline-block; margin-top: 24px; font-size: 13px; color: var(--accent); text-decoration: none; }
+
+  .filename-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .filename-display { word-break: break-all; }
+  .edit-btn {
+    border: none; background: none; cursor: pointer; font-size: 13px;
+    padding: 2px 4px; border-radius: 6px; line-height: 1; opacity: 0.6;
+  }
+  .edit-btn:hover { opacity: 1; background: #f3f4f6; }
+  .filename-edit { display: none; align-items: center; gap: 6px; width: 100%; margin-top: 4px; }
+  .filename-edit input {
+    flex: 1; min-width: 120px; padding: 6px 8px; border: 1px solid var(--accent);
+    border-radius: 6px; font-size: 12px;
+  }
+  .filename-edit button {
+    padding: 6px 10px; border-radius: 6px; border: none; font-size: 12px; cursor: pointer; font-weight: 600;
+  }
+  .filename-edit .save-btn { background: var(--accent); color: white; }
+  .filename-edit .save-btn:hover { background: var(--accent-hover); }
+  .filename-edit .cancel-btn { background: #f3f4f6; color: var(--text); }
+  .rename-error { color: var(--red); font-size: 11px; margin-top: 2px; width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✅ 분류 결과</h1>
+  <p class="subtitle">이름이 바뀐 파일들은 임시 작업 폴더에 저장되어 있어요. 아래에서 ZIP으로 내려받으세요.</p>
+
+  <div class="ref-card">
+    {% if ref_thumb %}
+      <img src="{{ ref_thumb }}" alt="기준 소재">
+    {% endif %}
+    <div class="ref-meta">
+      기준 소재(A): <b>{{ ref_name }}</b><br>
+      가중치 — phash {{ '%.2f'|format(weights.phash) }} / color {{ '%.2f'|format(weights.color) }} / structure {{ '%.2f'|format(weights.structure) }} / clip {{ '%.2f'|format(weights.get('clip', 0)) }}<br>
+      임계값 — 동일 ≥ {{ thresholds.identical }} / 유사 ≥ {{ thresholds.similar }}
+      {% if crop and (crop.top > 0 or crop.bottom > 0 or crop.left > 0 or crop.right > 0) %}
+      <br>제외 영역 — 상 {{ (crop.top*100)|round(0, 'floor')|int }}% / 하 {{ (crop.bottom*100)|round(0, 'floor')|int }}% / 좌 {{ (crop.left*100)|round(0, 'floor')|int }}% / 우 {{ (crop.right*100)|round(0, 'floor')|int }}%
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div class="summary">
+      <span class="pill identical">동일 {{ counts['동일'] }}개</span>
+      <span class="pill similar">유사 {{ counts['유사'] }}개</span>
+      <span class="pill different">다름 {{ counts['다름'] }}개</span>
+    </div>
+    <a class="btn primary" href="{{ url_for('download', session_id=session_id) }}">⬇ 결과 ZIP 다운로드</a>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>미리보기</th>
+        <th>원본 파일명</th>
+        <th>변경된 파일명</th>
+        <th>분류</th>
+        <th>점수</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results %}
+      <tr>
+        <td>
+          {% if r.thumb %}
+            <img class="thumb" src="{{ r.thumb }}" alt="">
+          {% else %}
+            <div class="no-thumb">N/A</div>
+          {% endif %}
+        </td>
+        <td>{{ r['원본파일명'] }}</td>
+        <td>
+          {% if r['변경된파일명'] and r['변경된파일명'] != '-' %}
+          <div class="filename-cell">
+            <span class="filename-display" data-name="{{ r['변경된파일명'] }}">{{ r['변경된파일명'] }}</span>
+            <button type="button" class="edit-btn" onclick="startEdit(this)" title="파일명 수정">✏️</button>
+            <div class="filename-edit">
+              <input type="text" class="rename-input">
+              <button type="button" class="save-btn" onclick="saveEdit(this, '{{ session_id }}')">저장</button>
+              <button type="button" class="cancel-btn" onclick="cancelEdit(this)">취소</button>
+            </div>
+            <div class="rename-error"></div>
+          </div>
+          {% else %}
+            {{ r['변경된파일명'] }}
+          {% endif %}
+        </td>
+        <td>
+          {% if r['분류'] == '동일' %}
+            <span class="badge identical">동일</span>
+          {% elif r['분류'] == '유사' %}
+            <span class="badge similar">유사</span>
+          {% elif r['분류'] == '다름' %}
+            <span class="badge different">다름</span>
+          {% else %}
+            <span class="badge other">{{ r['분류'] }}</span>
+          {% endif %}
+          {% if r.get('matched_by') == '부분포함' %}
+            <div class="score-detail" style="margin-top:4px; color:#7c3aed; font-weight:600;">↳ 부분 포함으로 판정</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if r['종합점수'] is not none %}
+            <div class="score">{{ '%.3f'|format(r['종합점수']) }}</div>
+            <div class="score-detail">phash {{ '%.2f'|format(r['phash']) }} · color {{ '%.2f'|format(r['color']) }} · structure {{ '%.2f'|format(r['structure']) }}{% if r.get('clip') is not none %} · clip {{ '%.2f'|format(r['clip']) }}{% endif %}{% if r.get('containment') is not none %} · containment {{ '%.2f'|format(r['containment']) }}{% endif %}</div>
+          {% else %}
+            <div class="score">-</div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <a class="back-link" href="{{ url_for('index') }}">← 새로운 비교 시작하기</a>
+</div>
+
+<script>
+function startEdit(btn) {
+  const cell = btn.closest('.filename-cell');
+  const display = cell.querySelector('.filename-display');
+  const editArea = cell.querySelector('.filename-edit');
+  const input = editArea.querySelector('.rename-input');
+
+  input.value = display.dataset.name;
+  display.style.display = 'none';
+  btn.style.display = 'none';
+  editArea.style.display = 'flex';
+  input.focus();
+  input.select();
+}
+
+function cancelEdit(btn) {
+  const cell = btn.closest('.filename-cell');
+  cell.querySelector('.filename-display').style.display = '';
+  cell.querySelector('.edit-btn').style.display = '';
+  cell.querySelector('.filename-edit').style.display = 'none';
+  cell.querySelector('.rename-error').textContent = '';
+}
+
+async function saveEdit(btn, sessionId) {
+  const cell = btn.closest('.filename-cell');
+  const display = cell.querySelector('.filename-display');
+  const input = cell.querySelector('.rename-input');
+  const errorEl = cell.querySelector('.rename-error');
+  const oldName = display.dataset.name;
+  const newName = input.value.trim();
+
+  errorEl.textContent = '';
+
+  if (!newName) {
+    errorEl.textContent = '파일명을 입력해주세요.';
+    return;
+  }
+  if (newName === oldName) {
+    cancelEdit(btn);
+    return;
+  }
+
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/rename/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `old_name=${encodeURIComponent(oldName)}&new_name=${encodeURIComponent(newName)}`
+    });
+    const data = await res.json();
+    if (data.success) {
+      display.textContent = data.new_name;
+      display.dataset.name = data.new_name;
+      cancelEdit(btn);
+    } else {
+      errorEl.textContent = data.error || '변경에 실패했습니다.';
+    }
+  } catch (e) {
+    errorEl.textContent = '서버와 통신에 실패했습니다.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

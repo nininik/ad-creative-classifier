@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>광고소재 유사도 분류기</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1c1e21;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --border: #e5e7eb;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 28px; font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    background: #fafafa;
+    font-size: 13px;
+  }
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+    background: #fafafa;
+    transition: border-color .15s;
+  }
+  .drop-zone.dragover { border-color: var(--accent); background: #eff6ff; }
+  .field { margin-bottom: 18px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .num-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  details summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .file-list {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  button.submit {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.submit:hover { background: var(--accent-hover); }
+  .flash {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .tag-row { display: flex; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+  .tag { background: #f3f4f6; padding: 3px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🖼️ 광고소재 유사도 분류기</h1>
+  <p class="subtitle">기준 소재(A)와 비교 대상 소재(B, C, D...)를 올리면 동일 / 유사 / 다름으로 분류하고 파일명을 바꿔드려요.</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for m in messages %}
+        <div class="flash">{{ m }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form action="{{ url_for('do_classify') }}" method="post" enctype="multipart/form-data" id="classifyForm" novalidate>
+    <div class="card">
+      <h2>1. 기준 소재 (A)</h2>
+      <div class="field">
+        <label for="reference">비교의 기준이 될 소재 파일 1개</label>
+        <input type="file" id="reference" name="reference" accept="image/*,.pdf" required>
+        <div class="hint">jpg / png / bmp / webp / pdf 지원 (PDF는 첫 페이지 기준)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. 비교 대상 소재 (B, C, D...)</h2>
+      <div class="field">
+        <label for="targets">여러 개 선택 가능 (Ctrl/Cmd 클릭 또는 폴더에서 전체 선택)</label>
+        <input type="file" id="targets" name="targets" accept="image/*,.pdf" multiple required>
+        <div class="file-list" id="fileList"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>⚙️ 고급 설정 (가중치 / 임계값)</summary>
+
+        <div class="field">
+          <label>지표 가중치 (phash / color / structure / clip) — 합이 1이 아니어도 자동 정규화됩니다</label>
+          <div class="grid4">
+            <div>
+              <div class="hint">phash (근접 동일)</div>
+              <input class="num-input" type="number" step="0.05" min="0" name="w_phash" value="0.15">
+            </div>
+            <div>
+              <div class="hint">color (색감)</div>
+              <input class="num-input" type="number" step="0.05" min="0" name="w_color" value="0.15">
+            </div>
+            <div>
+              <div class="hint">structure (구도)</div>
+              <input class="num-input" type="number" step="0.05" min="0" name="w_structure" value="0.25">
+            </div>
+            <div>
+              <div class="hint">clip (내용/의미)</div>
+              <input class="num-input" type="number" step="0.05" min="0" name="w_clip" value="0.45">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+            <input type="checkbox" name="use_clip" {% if clip_available %}checked{% endif %} style="width:auto;">
+            CLIP(내용 기반 의미 유사도) 사용
+          </label>
+          {% if clip_available %}
+            <div class="hint">색상·구도가 아니라 이미지에 담긴 내용 자체가 비슷한지 판단합니다. 첫 사용 시 모델을 내려받느라 시간이 조금 걸릴 수 있어요.</div>
+          {% else %}
+            <div class="hint" style="color:#b91c1c;">⚠️ torch / open_clip_torch가 설치되어 있지 않아 CLIP은 사용할 수 없어요. (pip install torch open_clip_torch 로 설치하면 켤 수 있습니다) 지금은 체크해도 자동으로 무시되고 나머지 지표로만 계산됩니다.</div>
+          {% endif %}
+        </div>
+
+        <div class="field">
+          <label>분류 임계값</label>
+          <div class="grid2">
+            <div>
+              <div class="hint">동일 판정 기준 (이상)</div>
+              <input class="num-input" type="number" step="0.01" min="0" max="1" name="identical_th" value="0.93">
+            </div>
+            <div>
+              <div class="hint">유사 판정 기준 (이상)</div>
+              <input class="num-input" type="number" step="0.01" min="0" max="1" name="similar_th" value="0.75">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>공통 템플릿 영역 제외 (%) — 로고, 상단 배지, 하단 버튼바처럼 모든 소재에 똑같이 들어가는 영역을 비교에서 빼고 싶을 때 사용</label>
+          <div class="grid4">
+            <div>
+              <div class="hint">상단</div>
+              <input class="num-input" type="number" step="1" min="0" max="49" name="crop_top" value="0">
+            </div>
+            <div>
+              <div class="hint">하단</div>
+              <input class="num-input" type="number" step="1" min="0" max="49" name="crop_bottom" value="0">
+            </div>
+            <div>
+              <div class="hint">좌측</div>
+              <input class="num-input" type="number" step="1" min="0" max="49" name="crop_left" value="0">
+            </div>
+            <div>
+              <div class="hint">우측</div>
+              <input class="num-input" type="number" step="1" min="0" max="49" name="crop_right" value="0">
+            </div>
+          </div>
+          <div class="hint">기준 소재와 대상 소재가 같은 비율/구도일 때만 정확하게 작동해요. 필요 없으면 0으로 두세요.</div>
+        </div>
+
+        <div class="field">
+          <label for="pdf_dpi">PDF 렌더링 해상도 (dpi)</label>
+          <input class="num-input" type="number" step="10" min="70" max="600" name="pdf_dpi" id="pdf_dpi" value="200" style="max-width:160px">
+        </div>
+
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+            <input type="checkbox" name="use_containment" checked style="width:auto;">
+            부분 포함 탐지 사용
+          </label>
+          <div class="hint">A가 B의 일부 영역에만 (리사이즈되어) 그대로 들어있는 경우도 잡아냅니다. 예: 작은 로고/배너가 다른 큰 소재 안에 재사용된 경우</div>
+          <div class="grid2" style="margin-top:10px;">
+            <div>
+              <div class="hint">부분 포함 → 동일 기준</div>
+              <input class="num-input" type="number" step="0.01" min="0" max="1" name="containment_identical_th" value="0.95">
+            </div>
+            <div>
+              <div class="hint">부분 포함 → 유사 기준</div>
+              <input class="num-input" type="number" step="0.01" min="0" max="1" name="containment_similar_th" value="0.80">
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <button type="submit" class="submit">분류 시작하기 →</button>
+  </form>
+</div>
+
+<script>
+  const targetsInput = document.getElementById('targets');
+  const fileList = document.getElementById('fileList');
+  targetsInput.addEventListener('change', () => {
+    const files = Array.from(targetsInput.files).map(f => f.name);
+    fileList.textContent = files.length ? `선택됨 (${files.length}개): ${files.join(', ')}` : '';
+  });
+</script>
+</body>
+</html>
