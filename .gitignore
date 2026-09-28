@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# PyInstaller 빌드 산출물
+build/
+dist/
+*.spec
+
+# 실행 결과/테스트 산출물
+classification_result.csv
+*.zip
+test_check/
+test_contain/
+test_imgs/
+test_imgs2/
+
+# CLIP 모델 캐시 (혹시 로컬에 받아진 경우)
+.cache/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
