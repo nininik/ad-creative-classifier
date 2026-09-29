@@ -96,6 +96,26 @@
   .filename-edit .save-btn:hover { background: var(--accent-hover); }
   .filename-edit .cancel-btn { background: #f3f4f6; color: var(--text); }
   .rename-error { color: var(--red); font-size: 11px; margin-top: 2px; width: 100%; }
+
+  .thumb, .ref-card img { cursor: zoom-in; transition: opacity .15s; }
+  .thumb:hover, .ref-card img:hover { opacity: 0.8; }
+
+  .lightbox-overlay {
+    display: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    z-index: 1000; align-items: center; justify-content: center;
+    padding: 24px; cursor: zoom-out;
+  }
+  .lightbox-overlay.open { display: flex; }
+  .lightbox-overlay img {
+    max-width: 90vw; max-height: 90vh; object-fit: contain;
+    border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .lightbox-close {
+    position: fixed; top: 20px; right: 28px; color: white; font-size: 32px;
+    background: none; border: none; cursor: pointer; line-height: 1; opacity: 0.8;
+  }
+  .lightbox-close:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -105,7 +125,7 @@
 
   <div class="ref-card">
     {% if ref_thumb %}
-      <img src="{{ ref_thumb }}" alt="기준 소재">
+      <img src="{{ ref_thumb }}" alt="기준 소재" onclick="openLightbox('{{ ref_thumb }}')">
     {% endif %}
     <div class="ref-meta">
       기준 소재(A): <b>{{ ref_name }}</b><br>
@@ -141,7 +161,7 @@
       <tr>
         <td>
           {% if r.thumb %}
-            <img class="thumb" src="{{ r.thumb }}" alt="">
+            <img class="thumb" src="{{ r.thumb }}" alt="" onclick="openLightbox('{{ r.thumb }}')">
           {% else %}
             <div class="no-thumb">N/A</div>
           {% endif %}
@@ -192,6 +212,28 @@
 
   <a class="back-link" href="{{ url_for('index') }}">← 새로운 비교 시작하기</a>
 </div>
+
+<div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
+  <button type="button" class="lightbox-close" onclick="closeLightbox(event)">✕</button>
+  <img id="lightboxImg" src="" alt="확대 이미지" onclick="event.stopPropagation()">
+</div>
+
+<script>
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxOverlay').classList.add('open');
+}
+
+function closeLightbox(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('lightboxOverlay').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeLightbox();
+});
+</script>
 
 <script>
 function startEdit(btn) {
