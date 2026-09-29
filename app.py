@@ -60,14 +60,18 @@ SESSIONS = {}
 CATEGORY_TAG = {"동일": "[동일]", "유사": "[유사]", "다름": "[다름]"}
 
 
-def make_thumbnail_data_uri(path: Path, pdf_dpi=200, max_size=220):
-    """미리보기용 썸네일을 base64 data URI로 생성 (이미지/PDF 공용)."""
+def make_thumbnail_data_uri(path: Path, pdf_dpi=200, max_size=1200):
+    """
+    미리보기용 이미지를 base64 data URI로 생성 (이미지/PDF 공용).
+    표에서는 CSS로 작게 표시하지만, 클릭해서 크게 볼 때도 선명하도록
+    실제 데이터는 넉넉한 해상도로 만들어둡니다.
+    """
     try:
         pil_img, _ = load_creative(path, pdf_dpi=pdf_dpi)
         pil_img = pil_img.copy()
         pil_img.thumbnail((max_size, max_size))
         buf = io.BytesIO()
-        pil_img.save(buf, format="JPEG", quality=82)
+        pil_img.save(buf, format="JPEG", quality=85)
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         return f"data:image/jpeg;base64,{b64}"
     except Exception:
